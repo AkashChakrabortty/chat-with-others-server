@@ -13,23 +13,59 @@ app.use(useragent.express());
 
 // mongo
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.kusbv.mongodb.net/?retryWrites=true&w=majority`;
-const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
+const client = new MongoClient(uri, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverApi: ServerApiVersion.v1,
+});
 
-async function run(){
-    const deviceInfoCollection = client
-      .db("chat-with-others")
-      .collection("deviceInfo");
-    try{
+async function run() {
+  const deviceInfoCollection = client
+    .db("chat-with-others")
+    .collection("deviceInfo");
+  try {
+    //store all customer device info
+    app.post("/storeDeviceInfo/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = {
+        email,
+      };
+      const numberOfDevice = (await deviceInfoCollection.find(query).toArray())
+        .length;
+      if (numberOfDevice <= 2) {
+        const ua = req.useragent;
+        const datetime = new Date();
+        const deviceInfo = {
+          email: email,
+          browser: ua.browser,
+          os: ua.os,
+          date: datetime.toISOString().slice(0, 10),
+        };
+        const result = deviceInfoCollection.insertOne(deviceInfo);
+        res.send(result);
+      } else {
+        res.send(false);
+      }
+    });
 
-         
+    //get single customer device info
+    app.get("/getDeviceInfo/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      const result = await deviceInfoCollection.find(query).toArray();
+      res.send(result);
+    });
 
-    }
-
-    catch{
-
-    }
+    //Delete single customer device info
+    app.delete("/deleteDeviceInfo/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      const result = await deviceInfoCollection.deleteOne(query);
+      res.send(result);
+    });
+  } catch {}
 }
-run().catch(err => console.log(err))
+run().catch((err) => console.log(err));
 
 app.get("/", (req, res) => {
   res.send("api found");
