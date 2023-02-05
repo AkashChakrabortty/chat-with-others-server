@@ -1,15 +1,22 @@
 const express = require("express");
 const cors = require("cors");
+const app = express();
+//start
+const http = require("http");
+const { Server } = require("socket.io");
+//end
 require("dotenv").config();
 const useragent = require("express-useragent");
 const { MongoClient, ServerApiVersion } = require("mongodb");
-const app = express();
 const port = process.env.PORT || 5000;
+
+const socketServer = http.createServer(app);
 
 // middle wares
 app.use(cors());
 app.use(express.json());
 app.use(useragent.express());
+
 
 // mongo
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.kusbv.mongodb.net/?retryWrites=true&w=majority`;
@@ -17,6 +24,14 @@ const client = new MongoClient(uri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
   serverApi: ServerApiVersion.v1,
+});
+
+//for cors policy
+const io = new Server(socketServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST", "DELETE", "PATCH"],
+  },
 });
 
 async function run() {
@@ -63,13 +78,39 @@ async function run() {
       const result = await deviceInfoCollection.deleteOne(query);
       res.send(result);
     });
+
+    //socket
+    io.on("connection", (socket) => {
+      console.log("User connected");
+
+      socket.on("disconnect", () => {
+        console.log("User disconnected");
+      });
+
+      socket.on("send message", (data) => {
+        console.log(data)
+        if(data.sender !='admin@gmail.com'){
+          data.to = "admin@gmail.com";
+        }
+        io.emit('messageTransfer',data)
+      });
+    });
+
   } catch {}
 }
 run().catch((err) => console.log(err));
 
+
+
 app.get("/", (req, res) => {
   res.send("api found");
 });
-app.listen(port, () => {
-  console.log("server running");
+// app.listen(port, () => {
+//   console.log("server running");
+// });
+socketServer.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
 });
+
+//socket install
+//  npm install socket.io 
